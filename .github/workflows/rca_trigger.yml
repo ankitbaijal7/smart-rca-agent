@@ -1,68 +1,184 @@
-# .github/workflows/rca_trigger.yml
-# Automatically triggers Smart RCA analysis when any CI workflow fails.
-# Posts results as GitHub job summary + Teams notification + Jira bug.
-
-name: Smart RCA — Auto Trigger
+name: Smart RCA — CI Test Suite + Auto Analysis
 
 on:
-  workflow_run:
-    workflows:
-      - "VeloCloud EFS Tests"
-      - "CCFW BGP-BFD Tests"
-      - "Meraki KTLO Tests"
-      - "Viptela Catalyst Tests"
-    types:
-      - completed
+  push:
+    branches: ["main", "develop"]
+  workflow_dispatch:
 
 jobs:
-  rca-analysis:
-    name: Run Smart RCA Analysis
-    runs-on: [self-hosted, avn-velaut-vm-16]
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+  robot-tests:
+    name: Robot Framework Test Suite
+    runs-on: self-hosted
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout RCA repo
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/smart-rca-agent
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install dependencies
+      - name: Set up Python venv
         run: |
-          pip install -r backend/requirements.txt --quiet
+          python3 -m venv .test-venv
+          source .test-venv/bin/activate
+          pip install --upgrade pip -q
+          pip install -r tests/requirements_test.txt -q
 
-      - name: Run Smart RCA Analysis
-        env:
-          LLM_MODE:              ${{ vars.LLM_MODE || 'hybrid' }}
-          OLLAMA_URL:            ${{ vars.OLLAMA_URL || 'http://localhost:11434' }}
-          OLLAMA_MODEL:          ${{ vars.OLLAMA_MODEL || 'deepseek-r1:8b' }}
-          ANTHROPIC_API_KEY:     ${{ secrets.ANTHROPIC_API_KEY }}
-          CHROMA_HOST:           ${{ vars.CHROMA_HOST || 'localhost' }}
-          CHROMA_PORT:           ${{ vars.CHROMA_PORT || '8001' }}
-          GITHUB_TOKEN:          ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_ORG:            ${{ github.repository_owner }}
-          GITHUB_REPO:           ${{ github.event.repository.name }}
-          JIRA_URL:              ${{ secrets.JIRA_URL }}
-          JIRA_EMAIL:            ${{ secrets.JIRA_EMAIL }}
-          JIRA_API_TOKEN:        ${{ secrets.JIRA_API_TOKEN }}
-          JIRA_PROJECT_KEY:      ${{ vars.JIRA_PROJECT_KEY || 'VRN' }}
-          TEAMS_WEBHOOK_URL:     ${{ secrets.TEAMS_WEBHOOK_URL }}
-          FAILED_RUN_ID:         ${{ github.event.workflow_run.id }}
-          FAILED_RUN_NAME:       ${{ github.event.workflow_run.name }}
-          FAILED_RUN_URL:        ${{ github.event.workflow_run.html_url }}
+      - name: Run UI Tests
+        id: ui_tests
+        continue-on-error: true
         run: |
-          python github-actions/scripts/run_rca.py
+          source .test-venv/bin/activate
+          mkdir -p results/ui results/network results/integration
+          python3 -m robot \
+            --outputdir results/ui \
+            --output output.xml \
+            --log log.html \
+            --report report.html \
+            --xunit xunit.xml \
+            tests/ui_tests.robot
 
-      - name: Upload RCA Report
+      - name: Run Network Tests (BGP / MPLS / SD-WAN)
+        id: network_tests
+        continue-on-error: true
+        run: |
+          source .test-venv/bin/activate
+          python3 -m robot \
+            --outputdir results/network \
+            --output output.xml \
+            --log log.html \
+            --report report.html \
+            --xunit xunit.xml \
+            tests/network_tests.robot
+
+      - name: Run Integration Tests
+        id: integration_tests
+        continue-on-error: true
+        run: |
+          source .test-venv/bin/activate
+          python3 -m robot \
+            --outputdir results/integration \
+            --output output.xml \
+            --log log.html \
+            --report report.html \
+            --xunit xunit.xml \
+            tests/integration_tests.robot
+
+      - name: Merge All Results
+        if: always()
+        run: |
+          source .test-venv/bin/activate
+          python3 -m robot.rebot \
+            --outputdir results \
+            --output output_merged.xml \
+            --log log_merged.html \
+            --report report_merged.html \
+            results/ui/output.xml \
+            results/network/output.xml \
+            results/integration/output.xml \
+            || true
+
+      - name: Publish Test Summary to GitHub
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import xml.etree.ElementTree as ET, os
+
+          rows, total_p, total_f = [], 0, 0
+          for name, path in [
+              ("🖥️ UI Tests",           "results/ui/output.xml"),
+              ("🌐 Network (BGP/MPLS)", "results/network/output.xml"),
+              ("🔗 Integration",        "results/integration/output.xml"),
+          ]:
+              if not os.path.exists(path):
+                  rows.append(f"| {name} | ❓ | – | – |"); continue
+              root = ET.parse(path).getroot()
+              stat = root.find(".//total/stat")
+              p = int(stat.get("pass", 0)) if stat is not None else 0
+              f = int(stat.get("fail", 0)) if stat is not None else 0
+              total_p += p; total_f += f
+              rows.append(f"| {name} | {'✅' if f==0 else '❌'} | {p} | {f} |")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as out:
+              out.write("## 🤖 Smart RCA Agent — Test Results\n\n")
+              out.write("| Suite | Status | Pass | Fail |\n|-------|--------|------|------|\n")
+              out.write("\n".join(rows) + "\n\n")
+              out.write(f"**Total: {total_p} passed, {total_f} failed**\n\n")
+              if total_f:
+                  out.write("> ⚡ RCA Agent is analyzing failures — Jira tickets auto-created for `real_bug` type.\n")
+          EOF
+
+      - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: smart-rca-report-${{ github.event.workflow_run.id }}
-          path: rca_output/
+          name: robot-results-${{ github.run_id }}
+          path: results/
           retention-days: 30
+
+      - name: Trigger RCA Agent — Index Failures + Analyze
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import xml.etree.ElementTree as ET, requests, os, json
+
+          RCA_URL = "http://localhost:8000"
+          failed = []
+
+          for suite, path in [
+              ("ui_tests",          "results/ui/output.xml"),
+              ("network_tests",     "results/network/output.xml"),
+              ("integration_tests", "results/integration/output.xml"),
+          ]:
+              if not os.path.exists(path):
+                  continue
+              root = ET.parse(path).getroot()
+              for test in root.findall(".//test"):
+                  st = test.find("status")
+                  if st is None or st.get("status") != "FAIL":
+                      continue
+                  msg = st.get("message", "")
+                  # Classify failure type from message
+                  ftype = "script_error"
+                  if any(k in msg.lower() for k in ["ssh","maxsessions","connection reset","errno 104"]):
+                      ftype = "infra_flake"
+                  elif any(k in msg.lower() for k in ["ui locator","elementclick","angular","css selector","locator failure"]):
+                      ftype = "ui_locator"
+                  elif any(k in msg.lower() for k in ["dns","env_issue","certificate","vpn","tunnel","vmanage","management plane"]):
+                      ftype = "env_issue"
+                  elif any(k in msg.lower() for k in ["bgp","route missing","mpls","real_bug","omp","label switching"]):
+                      ftype = "real_bug"
+                  failed.append({
+                      "name": test.get("name"),
+                      "suite": suite,
+                      "type": ftype,
+                      "message": msg[:500],
+                  })
+
+          print(f"[RCA] {len(failed)} failures detected, indexing into vector memory...")
+          for f in failed:
+              try:
+                  r = requests.post(f"{RCA_URL}/api/memory/index-failure", json={
+                      "failure_text": f"{f['name']}: {f['message']}",
+                      "fix_text":     "Pending LLM analysis",
+                      "suite":        f["suite"],
+                      "failure_type": f["type"],
+                  }, timeout=30)
+                  print(f"  ✓ Indexed [{f['type']}] {f['name'][:60]} ({r.status_code})")
+              except Exception as e:
+                  print(f"  ✗ Index failed: {e}")
+
+          print("\n[RCA] Triggering standup analysis...")
+          try:
+              r = requests.post(f"{RCA_URL}/api/standup/run",
+                  json={"post_to_teams": False}, timeout=300)
+              result = r.json()
+              print(f"  Summary: {result.get('summary','')[:200]}")
+              jira_tickets = [
+                  f.get('jira_key') for f in result.get('failures', []) if f.get('jira_key')
+              ]
+              if jira_tickets:
+                  print(f"  Jira tickets created: {', '.join(jira_tickets)}")
+              else:
+                  print("  No Jira tickets (no real_bug failures above confidence threshold)")
+          except Exception as e:
+              print(f"  Standup failed: {e}")
+          PYEOF

@@ -45,9 +45,10 @@ services:
       - rca_outputs:/app/rca_output
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 10s
-      retries: 3
+      interval: 20s
+      timeout: 15s
+      retries: 10
+      start_period: 120s
 
   # ── React Frontend ─────────────────────────────────────────────────────
   frontend:
