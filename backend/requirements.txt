@@ -1,0 +1,44 @@
+# ── Web framework ──────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+
+# ── LangChain ──────────────────────────────────────────────────────────────
+langchain>=0.3.0
+langchain-community>=0.3.0
+langchain-anthropic>=0.2.0
+langchain-ollama>=0.2.0
+langchain-chroma>=0.1.4
+langgraph>=0.2.0
+
+# ── Vector DB & Embeddings ─────────────────────────────────────────────────
+chromadb>=0.5.11
+sentence-transformers>=3.1.0
+torch>=2.4.0
+
+# ── LLM clients ────────────────────────────────────────────────────────────
+anthropic>=0.34.0
+ollama>=0.3.0
+
+# ── Integrations ───────────────────────────────────────────────────────────
+PyGithub>=2.4.0
+jira>=3.8.0
+requests>=2.32.0
+aiohttp>=3.10.0
+
+# ── Parsing & utilities ────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+lxml>=5.3.0
+beautifulsoup4>=4.12.0
+PyYAML>=6.0.0
+python-dateutil>=2.9.0
+
+# ── Scheduler ──────────────────────────────────────────────────────────────
+apscheduler>=3.10.0
+
+# ── Testing ────────────────────────────────────────────────────────────────
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+httpx>=0.27.0

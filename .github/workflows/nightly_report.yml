@@ -1,0 +1,43 @@
+# .github/workflows/nightly_report.yml
+# Runs every morning at 07:00 UK time to post standup update to Teams.
+
+name: Smart RCA — Nightly Standup Report
+
+on:
+  schedule:
+    - cron: "0 7 * * 1-5"   # 07:00 UTC Mon-Fri (adjust for BST: use 6 * * 1-5)
+  workflow_dispatch:          # Allow manual trigger
+
+jobs:
+  nightly-standup:
+    name: Morning Standup Report
+    runs-on: [self-hosted, avn-velaut-vm-16]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/smart-rca-agent
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - run: pip install -r backend/requirements.txt --quiet
+
+      - name: Generate & Post Standup
+        env:
+          LLM_MODE:          ${{ vars.LLM_MODE || 'hybrid' }}
+          OLLAMA_URL:        ${{ vars.OLLAMA_URL || 'http://localhost:11434' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CHROMA_HOST:       ${{ vars.CHROMA_HOST || 'localhost' }}
+          GITHUB_TOKEN:      ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ORG:        ${{ github.repository_owner }}
+          GITHUB_REPO:       ${{ github.event.repository.name }}
+          JIRA_URL:          ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL:        ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN:    ${{ secrets.JIRA_API_TOKEN }}
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          REPORT_MODE:       standup
+        run: python github-actions/scripts/run_rca.py

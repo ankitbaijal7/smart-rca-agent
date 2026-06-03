@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker plugin *)",
+      "Bash(docker compose *)"
+    ]
+  }
+}

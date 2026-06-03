@@ -1,0 +1,68 @@
+# .github/workflows/rca_trigger.yml
+# Automatically triggers Smart RCA analysis when any CI workflow fails.
+# Posts results as GitHub job summary + Teams notification + Jira bug.
+
+name: Smart RCA — Auto Trigger
+
+on:
+  workflow_run:
+    workflows:
+      - "VeloCloud EFS Tests"
+      - "CCFW BGP-BFD Tests"
+      - "Meraki KTLO Tests"
+      - "Viptela Catalyst Tests"
+    types:
+      - completed
+
+jobs:
+  rca-analysis:
+    name: Run Smart RCA Analysis
+    runs-on: [self-hosted, avn-velaut-vm-16]
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+
+    steps:
+      - name: Checkout RCA repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/smart-rca-agent
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt --quiet
+
+      - name: Run Smart RCA Analysis
+        env:
+          LLM_MODE:              ${{ vars.LLM_MODE || 'hybrid' }}
+          OLLAMA_URL:            ${{ vars.OLLAMA_URL || 'http://localhost:11434' }}
+          OLLAMA_MODEL:          ${{ vars.OLLAMA_MODEL || 'deepseek-r1:8b' }}
+          ANTHROPIC_API_KEY:     ${{ secrets.ANTHROPIC_API_KEY }}
+          CHROMA_HOST:           ${{ vars.CHROMA_HOST || 'localhost' }}
+          CHROMA_PORT:           ${{ vars.CHROMA_PORT || '8001' }}
+          GITHUB_TOKEN:          ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ORG:            ${{ github.repository_owner }}
+          GITHUB_REPO:           ${{ github.event.repository.name }}
+          JIRA_URL:              ${{ secrets.JIRA_URL }}
+          JIRA_EMAIL:            ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN:        ${{ secrets.JIRA_API_TOKEN }}
+          JIRA_PROJECT_KEY:      ${{ vars.JIRA_PROJECT_KEY || 'VRN' }}
+          TEAMS_WEBHOOK_URL:     ${{ secrets.TEAMS_WEBHOOK_URL }}
+          FAILED_RUN_ID:         ${{ github.event.workflow_run.id }}
+          FAILED_RUN_NAME:       ${{ github.event.workflow_run.name }}
+          FAILED_RUN_URL:        ${{ github.event.workflow_run.html_url }}
+        run: |
+          python github-actions/scripts/run_rca.py
+
+      - name: Upload RCA Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-rca-report-${{ github.event.workflow_run.id }}
+          path: rca_output/
+          retention-days: 30
