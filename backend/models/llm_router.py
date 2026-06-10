@@ -1,5 +1,5 @@
 """
-LLM Router — hybrid local (Ollama) / cloud (Claude API) with automatic fallback.
+LLM Router — hybrid local (Ollama) / cloud LLM with automatic fallback.
 Abstracts the LLM backend so all agents are backend-agnostic.
 """
 import logging
@@ -25,7 +25,7 @@ class LLMMode(str, Enum):
 
 class LLMRouter:
     """
-    Routes LLM calls to Ollama (local) or Claude API (cloud) based on config.
+    Routes LLM calls to Ollama (local) or cloud LLM based on config.
     In hybrid mode: tries local first, falls back to cloud on failure.
     """
 
@@ -74,7 +74,7 @@ class LLMRouter:
         if healthy:
             logger.info("LLM Router: using local Ollama (%s)", self.ollama_model)
             return self.get_local_model()
-        logger.warning("LLM Router: Ollama unreachable, falling back to Claude API")
+        logger.warning("LLM Router: Ollama unreachable, falling back to cloud LLM")
         return self.get_cloud_model()
 
     # ── Simple invoke (non-streaming) ────────────────────────────────────

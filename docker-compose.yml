@@ -1,7 +1,7 @@
 version: "3.9"
 
 # Full stack — backend + frontend + ChromaDB
-# For cloud LLM (Claude API). Set ANTHROPIC_API_KEY in .env
+# For cloud LLM fallback, set cloud credentials in .env
 
 services:
 

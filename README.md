@@ -1,7 +1,7 @@
 # ⚡ Smart RCA Agent v2.0
 ### AI-Powered CI/CD Failure Analysis for Vodafone Ready Networks
 
-Full-stack monorepo — LangChain · RAG · ChromaDB · Ollama (on-prem) · Claude API (cloud fallback)
+Full-stack monorepo — LangChain · RAG · ChromaDB · Ollama (on-prem) · Capgemini LLM (cloud fallback)
 
 ---
 
@@ -27,7 +27,7 @@ smart-rca-agent/
 │   │   ├── jira_client.py      # Jira REST API
 │   │   └── teams_client.py     # MS Teams webhook
 │   ├── models/                 # LLM abstraction layer
-│   │   └── llm_router.py       # Ollama (local) / Claude API (cloud) router
+│   │   └── llm_router.py       # Ollama (local) / Cloud LLM router
 │   └── utils/
 │       ├── classifier.py       # Failure type classifier
 │       └── log_parser.py       # Robot Framework log parser
@@ -55,10 +55,10 @@ cp .env.example .env
 docker-compose -f docker-compose.local.yml up -d
 ```
 
-### Option B — Cloud (Claude API fallback)
+### Option B — Cloud (Capgemini LLM fallback)
 ```bash
 cp .env.example .env
-# Edit .env: set LLM_MODE=cloud, fill ANTHROPIC_API_KEY
+# Edit .env: set LLM_MODE=cloud, fill cloud LLM credentials
 docker-compose up -d
 ```
 
@@ -81,7 +81,7 @@ API docs: http://localhost:8000/docs
 | `LLM_MODE` | `local` / `cloud` / `hybrid` | `hybrid` |
 | `OLLAMA_URL` | Ollama server URL | `http://localhost:11434` |
 | `OLLAMA_MODEL` | Model name | `deepseek-r1:8b` |
-| `ANTHROPIC_API_KEY` | Claude API key (cloud fallback) | — |
+| `CLOUD_LLM_API_KEY` | Cloud LLM API key (fallback) | — |
 | `CHROMA_HOST` | ChromaDB host | `localhost` |
 | `CHROMA_PORT` | ChromaDB port | `8001` |
 | `GITHUB_TOKEN` | GitHub PAT | — |
@@ -105,7 +105,7 @@ GitHub Actions Failure
   FastAPI Backend
         ↓
   LLM Router ──→ Ollama (local primary)
-        |    └──→ Claude API (cloud fallback)
+        |    └──→ Capgemini LLM (cloud fallback)
         ↓
   LangChain Agent
         ↓

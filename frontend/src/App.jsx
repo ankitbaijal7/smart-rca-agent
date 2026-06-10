@@ -447,7 +447,7 @@ export default function App() {
         <div style={{ width:38, height:38, borderRadius:8, background:`linear-gradient(135deg,${T.accent},${T.purple})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>⚡</div>
         <div>
           <div style={{ fontSize:15, fontWeight:700, color:T.text }}>Smart RCA Agent <span style={{ color:T.accent, fontSize:11, fontWeight:400 }}>v2.0</span></div>
-          <div style={{ fontSize:11, color:T.muted }}>LangChain · RAG · ChromaDB · Ollama/Claude — Vodafone Ready Networks</div>
+          <div style={{ fontSize:11, color:T.muted }}>LangChain · RAG · ChromaDB · Ollama — Vodafone Ready Networks</div>
         </div>
         <div style={{ marginLeft:"auto", display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
           {health && (
@@ -493,7 +493,7 @@ export default function App() {
         {[
           ["Vector Store","ChromaDB (on-prem)",T.accent],
           ["Primary LLM","Ollama deepseek-r1:8b",T.purple],
-          ["Fallback LLM","Claude claude-sonnet-4",T.amber],
+          ["Fallback LLM","Capgemini Cloud LLM",T.amber],
           ["Embeddings","all-MiniLM-L6-v2",T.red],
           ["Orchestration","LangChain + LangGraph",T.green],
           ["Integrations","GitHub · Jira · Teams",T.muted],
