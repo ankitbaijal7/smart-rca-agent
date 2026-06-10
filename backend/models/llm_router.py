@@ -34,7 +34,7 @@ class LLMRouter:
         self.ollama_url    = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.ollama_model  = os.getenv("OLLAMA_MODEL", "deepseek-r1:8b")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
-        self.anthropic_model = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+        self.anthropic_model = os.getenv("CLOUD_LLM_MODEL", "")
         self._local_healthy: Optional[bool] = None
 
     # ── Health check ─────────────────────────────────────────────────────
